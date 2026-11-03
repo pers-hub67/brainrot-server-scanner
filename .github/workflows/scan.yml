@@ -1,0 +1,50 @@
+
+name: Steal a Brainrot server scanner
+
+on:
+  schedule:
+    - cron: "3-58/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: brainrot-server-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scan public Roblox servers
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          MAX_PAGES_PER_SCAN: "3"
+          MAX_MESSAGES_PER_SCAN: "5"
+        run: python bot.py
+
+      - name: Save seen server IDs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seen_servers.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update scanned Roblox servers"
+            git push
+          else
+            echo "No new server IDs to save."
+          fi
